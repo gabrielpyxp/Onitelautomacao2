@@ -2,7 +2,7 @@
 
 Este projeto foi desenvolvido para o **Setor de Monitoramento da Onitel Telecom** com o objetivo de **automatizar relatórios de SLA**: desde o download no sistema de gestão até a atualização e visualização em tempo real via aplicação web.
 
-Após **5 meses de testes com 100% de aproveitamento**, o setor de Monitoramento está **batendo meta há 3 meses consecutivos** e segue com maior eficiência, padronização e confiabilidade dos dados.
+Após **5 meses de testes com 100% de aproveitamento**, o setor de Monitoramento está **batendo meta há 4 meses consecutivos** e segue com maior eficiência, padronização e confiabilidade dos dados.
 
 ---
 
@@ -118,8 +118,8 @@ automacao-onitel/
 
 ## 📈 Resultados
 
-* **2 meses de testes com 100% de aproveitamento**.
-* **Setor de Monitoramento batendo meta há 2 meses consecutivos**.
+* **5 meses de testes com 100% de aproveitamento**.
+* **Setor de Monitoramento batendo meta há 4 meses consecutivos**.
 * Fluxo **100% automatizado**, confiável e contínuo.
 
 ---
