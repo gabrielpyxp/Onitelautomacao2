@@ -72,8 +72,8 @@ O fluxo completo da automação é o seguinte:
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/seuusuario/automacao-onitel.git
-cd automacao-onitel
+git [clone https://github.com/gabrielpyxp/Onitelautomacao2
+cd Onitelautomacao2
 ```
 
 ### 2. Instale as dependências
