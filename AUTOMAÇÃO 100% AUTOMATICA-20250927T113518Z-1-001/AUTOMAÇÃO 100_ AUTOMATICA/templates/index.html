@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relatório Onitel - SLA e Status</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --cor-positivo: #28a745;
+            --cor-negativo: #dc3545;
+            --cor-agendada: #17a2b8;
+            --cor-execucao: #ffc107;
+            --cor-concluida: #6f42c1;
+            --cor-cancelada: #6c757d;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .card-header {
+            font-weight: 600;
+        }
+        
+        .sla-positivo { 
+            color: var(--cor-positivo); 
+            font-weight: bold; 
+        }
+        
+        .sla-negativo { 
+            color: var(--cor-negativo); 
+            font-weight: bold; 
+            animation: piscar 1.5s infinite;
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .status-agendada { background-color: rgba(23, 162, 184, 0.1); color: var(--cor-agendada); }
+        .status-execucao { background-color: rgba(255, 193, 7, 0.1); color: var(--cor-execucao); }
+        .status-concluida { background-color: rgba(111, 66, 193, 0.1); color: var(--cor-concluida); }
+        .status-cancelada { background-color: rgba(108, 117, 125, 0.1); color: var(--cor-cancelada); }
+        
+        @keyframes piscar {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .table th {
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            background-color: white;
+        }
+        
+        .table-responsive {
+            max-height: 75vh;
+            overflow-y: auto;
+        }
+        
+        .filter-buttons .btn {
+            min-width: 100px;
+        }
+        
+        .last-update {
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Relatório de Ordens de Serviço</h5>
+                    <div class="last-update mt-1" id="last-update">Atualizado em: carregando...</div>
+                </div>
+                <div class="filter-buttons btn-group">
+                    <button id="btn-todos" class="btn btn-light btn-sm active">
+                        <i class="bi bi-filter-circle"></i> Todos
+                    </button>
+                    <button id="btn-positivo" class="btn btn-success btn-sm">
+                        <i class="bi bi-check-circle"></i> SLA ≥ 90
+                    </button>
+                    <button id="btn-negativo" class="btn btn-danger btn-sm">
+                        <i class="bi bi-exclamation-circle"></i> SLA < 90
+                    </button>
+                    <button id="btn-test-sirene" class="btn btn-warning btn-sm ms-2">
+                        <i class="bi bi-volume-up"></i> Testar Sirene
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th class="ps-4">ID</th>
+                                <th>Cliente</th>
+                                <th>SLA</th>
+                                <th>Status</th>
+                                <th class="pe-4">Abertura</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-dados">
+                            <!-- Dados serão carregados aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer bg-light d-flex justify-content-between align-items-center">
+                <small class="text-muted">Total: <span id="total-registros">0</span> registros</small>
+                <div>
+                    <button id="btn-refresh" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-arrow-clockwise"></i> Atualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="alerta-sla-negativo" class="alert alert-danger text-center fw-bold" style="display:none; position:fixed; top:0; left:0; right:0; z-index:9999; border-radius:0;">
+        <span>⚠️ Atenção: Novo SLA &lt; 90 detectado!</span>
+        <button type="button" class="btn-close float-end" aria-label="Fechar" onclick="$('#alerta-sla-negativo').hide();"></button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    $(document).ready(function() {
+        // Função para formatar a data
+        function formatarData(dataString) {
+            if (!dataString) return '';
+            const data = new Date(dataString);
+            return data.toLocaleString('pt-BR');
+        }
+        
+        // Função para determinar a classe do status
+        function getStatusClass(status) {
+            if (!status) return '';
+            status = status.toLowerCase();
+            
+            if (status.includes('agendada')) return 'status-agendada';
+            if (status.includes('execução') || status.includes('execucao')) return 'status-execucao';
+            if (status.includes('concluída') || status.includes('concluida')) return 'status-concluida';
+            if (status.includes('cancelada')) return 'status-cancelada';
+            return '';
+        }
+        
+        // Usa áudio local para a sirene
+        if (!document.getElementById('sirene-audio')) {
+            const audio = document.createElement('audio');
+            audio.id = 'sirene-audio';
+            audio.src = '/static/sirene.mp3';
+            audio.preload = 'auto';
+            document.body.appendChild(audio);
+        }
+        const sireneAudio = document.getElementById('sirene-audio');
+        sireneAudio.muted = false;
+        sireneAudio.volume = 0.3; // Volume reduzido para 30%
+        let audioLiberado = false;
+        function liberarAudio() {
+            // Apenas libera o áudio, não toca a sirene
+            sireneAudio.play().then(() => {
+                audioLiberado = true;
+                sireneAudio.pause(); // Para imediatamente após liberar
+                sireneAudio.currentTime = 0;
+            }).catch(()=>{});
+            document.body.removeEventListener('click', liberarAudio);
+        }
+        document.body.addEventListener('click', liberarAudio);
+
+        let sireneTimeout = null;
+        function tocarSirenePor3s() {
+            if (sireneTimeout) {
+                clearTimeout(sireneTimeout);
+                sireneTimeout = null;
+                sireneAudio.pause();
+                sireneAudio.currentTime = 0;
+                return;
+            }
+            if (audioLiberado) {
+                sireneAudio.currentTime = 0;
+                sireneAudio.play();
+                sireneTimeout = setTimeout(() => {
+                    sireneAudio.pause();
+                    sireneAudio.currentTime = 0;
+                    sireneTimeout = null;
+                }, 3000);
+            }
+        }
+        $('#btn-test-sirene').off('click').on('click', function() {
+            tocarSirenePor3s();
+        });
+
+        function tocarSirene() {
+            if (audioLiberado) {
+                sireneAudio.currentTime = 0;
+                sireneAudio.play();
+            }
+        }
+        $('#btn-test-sirene').off('click').on('click', function() {
+            tocarSirenePor3s();
+        });
+
+        // Função para mostrar alerta visual
+        function mostrarAlertaSlaNegativo() {
+            $('#alerta-sla-negativo').show();
+            setTimeout(function() {
+                $('#alerta-sla-negativo').fadeOut();
+            }, 10000); // 10 segundos
+        }
+
+        // Função para carregar dados
+        // updateMode: true = atualização automática, false = inicial ou manual
+        function carregarDados(filtro = 'todos', updateMode = false) {
+            $.get('/api/data', { sla_filter: filtro }, function(response) {
+                const dados = response.data;
+                const tbody = $('#tabela-dados');
+                tbody.empty();
+                let slasNegativas = 0;
+                dados.forEach(item => {
+                    const slaClass = item.SLA < 90 ? 'sla-negativo' : 'sla-positivo';
+                    const statusClass = getStatusClass(item.Status);
+                    if (item.SLA < 90) slasNegativas++;
+                    tbody.append(`
+                        <tr>
+                            <td class="ps-4">${item.ID}</td>
+                            <td>${item.NomeCliente}</td>
+                            <td class="${slaClass}">${item.SLA}%</td>
+                            <td><span class="status-badge ${statusClass}">${item.Status || 'N/A'}</span></td>
+                            <td class="pe-4">${formatarData(item.Abertura)}</td>
+                        </tr>
+                    `);
+                });
+                // Atualiza contagem e horário
+                $('#total-registros').text(dados.length);
+                $('#last-update').text('Atualizado em: ' + response.last_update);
+                // Só toca a sirene e mostra alerta se for atualização automática e houver ID negativo novo
+                if (updateMode && response.new_negative_ids && response.new_negative_ids.length > 0) {
+                    tocarSirene();
+                    mostrarAlertaSlaNegativo();
+                }
+            }).fail(function() {
+                alert('Erro ao carregar dados!');
+                $('#last-update').text('Erro ao atualizar dados');
+            });
+        }
+
+        // Carregar todos os dados inicialmente (sem tocar sirene)
+        carregarDados('todos', false);
+
+        // Eventos dos botões
+        $('#btn-todos').click(() => carregarDados('todos', false));
+        $('#btn-positivo').click(() => carregarDados('positivo', false));
+        $('#btn-negativo').click(() => carregarDados('negativo', false));
+        $('#btn-refresh').click(() => {
+            const filtroAtual = $('#btn-todos').hasClass('active') ? 'todos' : 
+                              $('#btn-positivo').hasClass('active') ? 'positivo' : 'negativo';
+            carregarDados(filtroAtual, false);
+        });
+        
+        // Ativar botão selecionado
+        $('.filter-buttons .btn').click(function() {
+            $('.filter-buttons .btn').removeClass('active');
+            $(this).addClass('active');
+        });
+        
+        // Atualizar a cada 1 minuto (toca sirene só se aparecer SLA < 90)
+        setInterval(() => {
+            let filtroAtual = 'todos';
+            if ($('#btn-positivo').hasClass('active')) filtroAtual = 'positivo';
+            else if ($('#btn-negativo').hasClass('active')) filtroAtual = 'negativo';
+            carregarDados(filtroAtual, true);
+        }, 60000); // 1 minuto em milissegundos
+    });
+    </script>
+</body>
+</html>
